@@ -299,3 +299,13 @@ body.has-dock { padding-bottom: calc(160px + env(safe-area-inset-bottom)); }
 }
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2s; } }
 .linkish { border: 0; background: none; padding: 0; color: var(--accent-ink); font: inherit; cursor: pointer; }
+
+/* Горизонтальные ряды (фильтры, схемы аккордов): на телефоне свайп с подсказкой-затуханием,
+   с мышью — переносим на новые строки, чтобы всё было видно без прокрутки вбок */
+.chips, .diagrams {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+}
+@media (hover: hover) and (pointer: fine) {
+  .chips, .diagrams { flex-wrap: wrap; overflow: visible; -webkit-mask-image: none; mask-image: none; }
+}
