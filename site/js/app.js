@@ -150,12 +150,14 @@ function homeView() {
       ['liked', 'Хотят сыграть'],
       ...(me ? [['mine', 'Я умею']] : []),
       ['new', 'Новые'],
+      ['bass', 'С басом'],
       ...MEMBERS.map((m) => [`by:${m.id}`, m.name, m]),
     ];
     let list = [...songs];
     if (homeFilter === 'liked') list = list.filter((s) => store.marksOf(s.id, 'like').length).sort((a, b) => store.marksOf(b.id, 'like').length - store.marksOf(a.id, 'like').length);
     else if (homeFilter === 'mine') list = list.filter((s) => store.hasMark(s.id, me, 'canplay'));
     else if (homeFilter === 'new') list = list.slice(0, 15);
+    else if (homeFilter === 'bass') list = list.filter((s) => Array.isArray(s.bass) && s.bass.length);
     else if (homeFilter.startsWith('by:')) list = list.filter((s) => s.added_by === homeFilter.slice(3));
     if (homeFilter !== 'new' && homeFilter !== 'liked') list.sort((a, b) => a.title.localeCompare(b.title, 'ru'));
 
@@ -348,32 +350,46 @@ function updateDock() {
 // ---------- бас-табы ----------
 const bassTabs = { songId: null, loading: false, results: null, error: '' };
 
+// Бас-партии песни: свежий поиск на этой странице или сохранённые в базе
+const bassList = (s) => (bassTabs.songId === s.id && bassTabs.results) || (Array.isArray(s.bass) ? s.bass : null);
+
 function bassTabsHTML(s) {
   const st = bassTabs.songId === s.id ? bassTabs : { results: null };
+  // ещё не искали — ищем сами, без кнопки
+  if (!Array.isArray(s.bass) && !st.loading && !st.results && !st.error) queueMicrotask(() => runBassSearch(s));
+  const list = bassList(s);
   const songsterr = `https://www.songsterr.com/?pattern=${encodeURIComponent(`${s.artist} ${s.title}`.trim())}`;
   let body;
-  if (st.loading) body = '<div class="spinner" role="status" aria-label="Ищем"></div>';
-  else if (st.results) {
-    body = st.results.length
-      ? st.results.map((r, i) => {
+  if (st.loading || (!list && !st.error)) body = '<div class="spinner" role="status" aria-label="Ищем"></div>';
+  else if (list) {
+    body = list.length
+      ? list.map((r, i) => {
           const inner = `<span class="main"><span class="t">${esc(r.title)}</span><span class="muted small">${esc(r.artist)}${r.note ? ' · ' + esc(r.note) : ''}</span></span><span class="badge">${esc(r.source)}</span>`;
           return `<div class="result">${r.external
             ? `<a class="result-main" href="${esc(r.url)}" target="_blank" rel="noopener nofollow" style="color:inherit">${inner}</a>`
             : `<button class="result-main" data-basstab="${i}">${inner}</button>`}</div>`;
         }).join('') + '<div class="muted small">Songsterr откроется у них на сайте сразу на дорожке баса, со звуком и замедлением.</div>'
       : '<div class="card empty" style="padding:16px">Готовой бас-партии не нашлось — играйте по нотам выше.</div>';
-  } else body = `<button class="btn" data-act="findbass">${I.search} Найти бас-табы</button>`;
-  return `<section class="section"><div class="section-head"><h2>Бас-табы</h2>
-      <a class="small" href="${songsterr}" target="_blank" rel="noopener">Songsterr</a></div>
-    ${st.error ? `<div class="notice">${esc(st.error)}</div>` : ''}${body}</section>`;
+  } else body = '';
+  return `<section class="section"><div class="section-head"><h2>Бас-партии</h2>
+      <span class="small" style="display:flex;gap:14px">${list ? '<button class="linkish" data-act="findbass">Обновить</button>' : ''}<a href="${songsterr}" target="_blank" rel="noopener">Songsterr</a></span></div>
+    ${st.error ? `<div class="notice">${esc(st.error)} <button class="linkish" data-act="findbass">Ещё раз</button></div>` : ''}${body}</section>`;
 }
 
 async function runBassSearch(s) {
   Object.assign(bassTabs, { songId: s.id, loading: true, results: null, error: '' });
   render();
-  try { bassTabs.results = await findBassTabs(s.title, s.artist); } catch (e) { bassTabs.error = 'Ultimate Guitar не ответил, попробуйте ещё раз'; }
+  try {
+    bassTabs.results = await findBassTabs(s.title, s.artist);
+    store.updateSong(s.id, { bass: bassTabs.results }).catch(() => {});
+  } catch (e) { bassTabs.error = 'Сайты с табами не ответили.'; }
   bassTabs.loading = false;
   if (route.name === 'song' && route.id === s.id) render();
+}
+
+// Для новой песни бас ищем в фоне и сохраняем — чтобы в режиме «Бас» всё было сразу
+function fetchBassInBackground(id, title, artist) {
+  findBassTabs(title, artist).then((r) => store.updateSong(id, { bass: r })).catch(() => {});
 }
 
 async function openBassTab(r) {
@@ -513,6 +529,7 @@ async function quickAdd(r) {
       try { const v = await findYoutube(`${s.artist} ${s.title}`); if (v) s.youtube = v.id; } catch { /* без видео */ }
     }
     r.addedId = await store.addSong({ title: s.title, artist: s.artist, body: s.body, youtube: s.youtube, source_url: s.source_url, added_by: me });
+    fetchBassInBackground(r.addedId, s.title, s.artist);
     toast(`Добавили «${s.title}»`);
   } catch (e) {
     toast('Не получилось добавить: ' + e.message.slice(0, 60));
@@ -777,7 +794,7 @@ document.addEventListener('click', async (e) => {
     const id = route.id;
     if (t.dataset.mode) { prefs.mode = t.dataset.mode; savePrefs(); return render(); }
     if (act === 'findbass') return runBassSearch(db.songs.find((x) => x.id === id));
-    if (t.dataset.basstab) return openBassTab(bassTabs.results[Number(t.dataset.basstab)]);
+    if (t.dataset.basstab) return openBassTab(bassList(db.songs.find((x) => x.id === id))[Number(t.dataset.basstab)]);
     if (t.dataset.shift) { const v = ((((prefs.shifts[id] || 0) + Number(t.dataset.shift) + 6) % 12) + 12) % 12 - 6; if (v) prefs.shifts[id] = v; else delete prefs.shifts[id]; savePrefs(); return render(); }
     if (t.dataset.size) { prefs.size = Math.max(12, Math.min(26, (prefs.size || 16) + Number(t.dataset.size))); savePrefs(); return render(); }
     if (t.dataset.speed) { prefs.speed = Math.max(1, Math.min(10, (prefs.speed || 3) + Number(t.dataset.speed))); savePrefs(); return updateDock(); }
@@ -900,6 +917,7 @@ document.addEventListener('submit', async (e) => {
       }
       const me = await needMe('Выбери себя — так будет видно, кто добавил песню.');
       const id = await store.addSong({ title: d.title, artist: d.artist, body: d.body, youtube: d.youtube, source_url: addState.draft?.source_url || null, added_by: me });
+      fetchBassInBackground(id, d.title, d.artist);
       if (d.toset) await store.saveSet({ song_ids: [...(db.set?.song_ids || []), id] });
       if (d.canplay && me) await store.toggleMark(id, me, 'canplay');
       addState.draft = null;

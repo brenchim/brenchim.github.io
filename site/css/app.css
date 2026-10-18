@@ -298,3 +298,4 @@ body.has-dock { padding-bottom: calc(160px + env(safe-area-inset-bottom)); }
   .sheet-modal { border-radius: 22px; }
 }
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2s; } }
+.linkish { border: 0; background: none; padding: 0; color: var(--accent-ink); font: inherit; cursor: pointer; }

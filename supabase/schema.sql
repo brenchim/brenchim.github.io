@@ -11,9 +11,12 @@ create table if not exists public.songs (
   source_url text check (source_url is null or char_length(source_url) <= 500),
   added_by text check (added_by is null or char_length(added_by) <= 40),
   tags text[] not null default '{}',
+  bass jsonb, -- найденные бас-партии: [{source, url, title, artist, note, external}], null — ещё не искали
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.songs add column if not exists bass jsonb;
 
 -- like = «хочу сыграть», canplay = «умею играть»
 create table if not exists public.marks (

@@ -120,9 +120,12 @@ const sameTitle = (a, b) => { const x = loose(a), y = loose(b); return x && y &&
 
 /** Songsterr: интерактивные табы, у многих русских групп есть отдельная дорожка баса. Открываются у них на сайте. */
 async function bassSongsterr(title, artist) {
-  const list = JSON.parse(await fetchPage(`https://www.songsterr.com/api/songs?pattern=${encodeURIComponent(`${artist} ${title}`.trim())}&size=10`));
+  const ask = async (pattern) => JSON.parse(await fetchPage(`https://www.songsterr.com/api/songs?pattern=${encodeURIComponent(pattern)}&size=20`));
+  const ok = (s) => s.popularTrackBass != null && !s.isJunk && sameTitle(s.title, title);
+  let list = (await ask(`${artist} ${title}`.trim())).filter(ok);
+  // не нашли «исполнитель + название» — ищем по названию и сверяем исполнителя (бывает записан иначе)
+  if (!list.length && artist) list = (await ask(title)).filter((s) => ok(s) && sameTitle(s.artist, artist));
   return list
-    .filter((s) => s.popularTrackBass != null && !s.isJunk && sameTitle(s.title, title))
     .slice(0, 3)
     .map((s) => ({
       source: 'Songsterr', external: true,
