@@ -46,7 +46,7 @@ async function searchAmdm(q) {
     const song = [...links].find((a) => /\/akkordi\/[^/]+\/\d+\//.test(a.getAttribute('href') || ''));
     if (!song) return;
     out.push({
-      source: 'amdm.ru',
+      source: 'amdm',
       url: absAmdm(song.getAttribute('href')),
       title: song.textContent.trim(),
       artist: links[0] && links[0] !== song ? links[0].textContent.trim() : '',

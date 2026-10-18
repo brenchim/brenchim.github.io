@@ -9,6 +9,13 @@ const $app = document.getElementById('app');
 const $nav = document.getElementById('nav');
 
 // ---------- утилиты ----------
+// Короткое имя источника для подписи: amdm, Ultimate Guitar, Songsterr…
+function sourceName(url) {
+  let host = '';
+  try { host = new URL(url).hostname.replace(/^(www|tabs)\./, ''); } catch { return ''; }
+  const known = { 'amdm.ru': 'amdm', 'ultimate-guitar.com': 'Ultimate Guitar', 'songsterr.com': 'Songsterr', 'youtube.com': 'YouTube' };
+  return known[host] || host;
+}
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const plural = (n, one, few, many) => {
   const a = Math.abs(n) % 100, b = a % 10;
@@ -265,7 +272,7 @@ function songView(id, inSet) {
   const fontCSS = cols ? `font-size:max(11px, min(${size}px, calc((min(100vw, 720px) - 34px) / ${(cols * 0.6).toFixed(1)})))` : `font-size:${size}px`;
   const lastPlay = plays[0] ? new Date(plays[0].played_at).toLocaleDateString('ru', { day: 'numeric', month: 'short' }) : '';
   let source = '';
-  try { if (s.source_url) source = new URL(s.source_url).hostname.replace(/^www\.|^tabs\./, ''); } catch { /* битая ссылка */ }
+  if (s.source_url) source = sourceName(s.source_url);
 
   return `<div class="wrap">
     <header class="top" style="padding-bottom:0">
@@ -412,7 +419,7 @@ const addState = { tab: 'find', q: '', results: null, loading: false, error: '',
 function formHTML(d, isEdit) {
   const yt = youtubeId(d.youtube);
   return `<form id="song-form" autocomplete="off">
-    ${d.source_url ? `<div class="notice">Загрузили с ${esc((() => { try { return new URL(d.source_url).hostname; } catch { return 'сайта'; } })())}. Проверьте текст и сохраните.</div>` : ''}
+    ${d.source_url ? `<div class="notice">Загрузили с ${esc(sourceName(d.source_url) || 'сайта')}. Проверьте текст и сохраните.</div>` : ''}
     <label class="field"><span>Название</span><input class="input" name="title" required maxlength="200" value="${esc(d.title)}"></label>
     <label class="field"><span>Исполнитель</span><input class="input" name="artist" maxlength="200" value="${esc(d.artist)}"></label>
     <label class="field"><span>Текст с аккордами (аккорды — строкой над словами)</span><textarea class="textarea" name="body" spellcheck="false">${esc(d.body)}</textarea></label>
@@ -438,7 +445,7 @@ function addView(params) {
     inner = `<form id="find-form" class="search" style="border-width:2px;border-color:var(--ink)" role="search">${I.search}
         <input id="find-q" type="search" placeholder="Например: сплин выхода нет" value="${esc(addState.q)}" enterkeyhint="search" autocomplete="off">
         <button class="btn btn-dark" style="height:36px;padding:0 12px" type="submit">Найти</button></form>
-      <div class="muted small" style="margin-top:8px">Ищем на amdm.ru и Ultimate Guitar. Нажмите на вариант — подтянем текст, аккорды и видео.</div>
+      <div class="muted small" style="margin-top:8px">Ищем на amdm и Ultimate Guitar. Нажмите на вариант — подтянем текст, аккорды и видео.</div>
       ${addState.loading ? '<div class="spinner" role="status" aria-label="Загрузка"></div>' : ''}
       ${addState.error ? `<div class="notice">${esc(addState.error)}</div>` : ''}
       ${addState.results ? (addState.results.length ? `<div class="muted small" style="margin-top:14px">Нажмите на песню, чтобы посмотреть и поправить, или «+», чтобы сразу добавить — можно несколько подряд.</div>
@@ -455,8 +462,8 @@ function addView(params) {
       ${addState.failed ? '<div class="muted small">Часть сайтов не ответила.</div>' : ''}`;
   } else if (t === 'link') {
     inner = `<form id="link-form"><label class="field"><span>Ссылка на страницу с аккордами</span>
-        <input class="input" id="link-url" type="url" inputmode="url" placeholder="https://amdm.ru/akkordi/…" required></label>
-        <div class="muted small" style="margin-top:8px">Лучше всего работают amdm.ru и Ultimate Guitar; с других сайтов возьмём самый большой блок текста.</div>
+        <input class="input" id="link-url" type="url" inputmode="url" placeholder="https://…" required></label>
+        <div class="muted small" style="margin-top:8px">Лучше всего работают amdm и Ultimate Guitar; с других сайтов возьмём самый большой блок текста.</div>
         ${addState.loading ? '<div class="spinner" role="status" aria-label="Загрузка"></div>' : ''}
         ${addState.error ? `<div class="notice">${esc(addState.error)}</div>` : ''}
         <button class="btn btn-primary btn-block" type="submit" style="margin-top:16px">Загрузить</button></form>`;
