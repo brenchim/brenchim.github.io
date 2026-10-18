@@ -1,7 +1,7 @@
 import { MEMBERS, memberById } from './members.js';
 import * as store from './store.js';
-import { parseSheet, uniqueChords, transposeLine, transposeChord, usesH, chordDiagramSVG, mainChord, longestLine } from './chords.js';
-import { searchAll, importFrom, findYoutube, youtubeId } from './importers.js';
+import { parseSheet, uniqueChords, transposeLine, transposeChord, usesH, chordDiagramSVG, mainChord, longestLine, bassLine, bassNoteOf, bassDiagramSVG } from './chords.js';
+import { searchAll, importFrom, findYoutube, youtubeId, findBassTabs, importBassTab } from './importers.js';
 import { Tuner, STRINGS, describe, nearestString } from './tuner.js';
 
 const db = store.db;
@@ -106,10 +106,12 @@ function topBar() {
 function songRow(s, n) {
   const plays = store.playsOf(s.id).length;
   const chords = uniqueChords(s.body).slice(0, 4).join(' ');
+  const adder = memberById(s.added_by);
   return `<a class="row" href="#/song/${s.id}">
     ${n != null ? `<span class="n">${n}</span>` : ''}
     <span class="main"><span class="t">${esc(s.title)}</span><span class="a">${esc(s.artist || '—')}</span></span>
-    <span class="side">${plays ? `<b>${times(plays)}</b>` : ''}<span>${esc(chords)}</span></span></a>`;
+    <span class="side">${plays ? `<b>${times(plays)}</b>` : ''}<span>${esc(chords)}</span></span>
+    ${adder ? `<span class="row-by" title="Добавил(а) ${esc(adder.name)}">${ava(adder, 26)}<span class="sr">добавил(а) ${esc(adder.name)}</span></span>` : ''}</a>`;
 }
 function songTile(s) {
   const m = memberById(s.added_by);
@@ -227,11 +229,15 @@ function sheetHTML(song, mode, shift) {
   const out = [];
   let prevGap = false;
   for (const l of lines) {
-    if (l.type === 'chords') { if (mode === 'chords') out.push(`<div class="cl">${esc(transposeLine(l.text, shift, german))}</div>`); continue; }
+    if (l.type === 'chords') {
+      if (mode === 'chords') out.push(`<div class="cl">${esc(transposeLine(l.text, shift, german))}</div>`);
+      else if (mode === 'bass') out.push(`<div class="cl">${esc(bassLine(transposeLine(l.text, shift, german)))}</div>`);
+      continue;
+    }
     if (l.type === 'gap') { if (!prevGap) out.push('<div class="ln"> </div>'); prevGap = true; continue; }
     prevGap = false;
     if (l.type === 'label') out.push(`<div class="lbl">${esc(l.text)}</div>`);
-    else out.push(`<div class="ln">${esc(mode === 'chords' ? l.text : l.text.replace(/\s{2,}/g, ' ').trim())}</div>`);
+    else out.push(`<div class="ln">${esc(mode !== 'text' ? l.text : l.text.replace(/\s{2,}/g, ' ').trim())}</div>`);
   }
   return out.join('');
 }
@@ -252,7 +258,8 @@ function songView(id, inSet) {
   const inCurrentSet = (db.set?.song_ids || []).includes(id);
   const keyChord = chords.length ? transposeChord(mainChord(s.body) || chords[0], shift, german) : '';
   // в режиме с аккордами строки нельзя переносить — ужимаем шрифт под ширину экрана (моноширинный ≈ 0.6em)
-  const cols = mode === 'chords' ? longestLine(s.body, true) : 0;
+  const withChords = (mode === 'chords' || mode === 'bass') && chords.length > 0;
+  const cols = withChords ? longestLine(s.body, true) : 0;
   const fontCSS = cols ? `font-size:max(11px, min(${size}px, calc((min(100vw, 720px) - 34px) / ${(cols * 0.6).toFixed(1)})))` : `font-size:${size}px`;
   const lastPlay = plays[0] ? new Date(plays[0].played_at).toLocaleDateString('ru', { day: 'numeric', month: 'short' }) : '';
   let source = '';
@@ -275,20 +282,24 @@ function songView(id, inSet) {
     </div>
     <div class="tools">
       <div class="seg" role="group" aria-label="Режим">
-        <button data-mode="chords" class="${mode === 'chords' ? 'on' : ''}" aria-pressed="${mode === 'chords'}">С аккордами</button>
+        <button data-mode="chords" class="${mode === 'chords' ? 'on' : ''}" aria-pressed="${mode === 'chords'}">Аккорды</button>
         <button data-mode="text" class="${mode === 'text' ? 'on' : ''}" aria-pressed="${mode === 'text'}">Только текст</button>
+        <button data-mode="bass" class="${mode === 'bass' ? 'on' : ''}" aria-pressed="${mode === 'bass'}">Бас</button>
       </div>
       <div class="tools-row">
-        ${mode === 'chords' && chords.length ? `<div class="stepper"><button data-shift="-1" aria-label="Тональность ниже">−</button>
+        ${withChords ? `<div class="stepper"><button data-shift="-1" aria-label="Тональность ниже">−</button>
           <span class="val"><small>тональность</small><b>${esc(keyChord)}${shift ? ` (${shift > 0 ? '+' : ''}${shift})` : ''}</b></span>
           <button data-shift="1" aria-label="Тональность выше">+</button></div>` : ''}
-        <div class="stepper ${mode === 'chords' && chords.length ? 'compact' : ''}"><button data-size="-1" aria-label="Мельче" style="font-size:13px;font-weight:600">A</button>
-          ${mode === 'chords' && chords.length ? '' : `<span class="val"><small>шрифт</small><b>${size}</b></span>`}
+        <div class="stepper ${withChords ? 'compact' : ''}"><button data-size="-1" aria-label="Мельче" style="font-size:13px;font-weight:600">A</button>
+          ${withChords ? '' : `<span class="val"><small>шрифт</small><b>${size}</b></span>`}
           <button data-size="1" aria-label="Крупнее" style="font-size:19px;font-weight:600">A</button></div>
       </div>
     </div>
     ${mode === 'chords' && chords.length ? `<div class="diagrams" aria-label="Аккорды песни">${chords.map((c) => { const t = transposeChord(c, shift, german); const svg = chordDiagramSVG(t, german); return `<div class="card dia"><b>${esc(t)}</b>${svg || '<span class="muted small" style="height:60px;display:grid;place-items:center">—</span>'}</div>`; }).join('')}</div>` : ''}
+    ${mode === 'bass' && chords.length ? `<div class="diagrams" aria-label="Басовые ноты">${[...new Set(chords.map((c) => bassNoteOf(transposeChord(c, shift, german))).filter(Boolean))].map((n) => `<div class="card dia bass"><b>${esc(n)}</b>${bassDiagramSVG(n, german)}</div>`).join('')}</div>
+      <div class="muted small" style="margin-top:8px">Над текстом — ноты баса: тоника аккорда, у C/G — нота после дроби. Точки — где взять ноту на струнах E и A.</div>` : ''}
     <article class="sheet ${mode === 'text' ? 'text-only' : ''}" style="${fontCSS}">${s.body ? sheetHTML(s, mode, shift) : '<div class="muted">Текста пока нет. <a href="#/edit/' + id + '">Добавить</a></div>'}</article>
+    ${mode === 'bass' ? bassTabsHTML(s) : ''}
 
     <div class="actions">
       <button class="btn" data-act="played">${I.check} Сыграли${plays.length ? ' · ' + plays.length : ''}</button>
@@ -332,6 +343,51 @@ function updateDock() {
   const dock = document.querySelector('.dock');
   if (!dock || route.name !== 'song') return;
   dock.outerHTML = dockHTML(route.id, route.inSet);
+}
+
+// ---------- бас-табы ----------
+const bassTabs = { songId: null, loading: false, results: null, error: '' };
+
+function bassTabsHTML(s) {
+  const st = bassTabs.songId === s.id ? bassTabs : { results: null };
+  const songsterr = `https://www.songsterr.com/?pattern=${encodeURIComponent(`${s.artist} ${s.title}`.trim())}`;
+  let body;
+  if (st.loading) body = '<div class="spinner" role="status" aria-label="Ищем"></div>';
+  else if (st.results) {
+    body = st.results.length
+      ? st.results.map((r, i) => {
+          const inner = `<span class="main"><span class="t">${esc(r.title)}</span><span class="muted small">${esc(r.artist)}${r.note ? ' · ' + esc(r.note) : ''}</span></span><span class="badge">${esc(r.source)}</span>`;
+          return `<div class="result">${r.external
+            ? `<a class="result-main" href="${esc(r.url)}" target="_blank" rel="noopener nofollow" style="color:inherit">${inner}</a>`
+            : `<button class="result-main" data-basstab="${i}">${inner}</button>`}</div>`;
+        }).join('') + '<div class="muted small">Songsterr откроется у них на сайте сразу на дорожке баса, со звуком и замедлением.</div>'
+      : '<div class="card empty" style="padding:16px">Готовой бас-партии не нашлось — играйте по нотам выше.</div>';
+  } else body = `<button class="btn" data-act="findbass">${I.search} Найти бас-табы</button>`;
+  return `<section class="section"><div class="section-head"><h2>Бас-табы</h2>
+      <a class="small" href="${songsterr}" target="_blank" rel="noopener">Songsterr</a></div>
+    ${st.error ? `<div class="notice">${esc(st.error)}</div>` : ''}${body}</section>`;
+}
+
+async function runBassSearch(s) {
+  Object.assign(bassTabs, { songId: s.id, loading: true, results: null, error: '' });
+  render();
+  try { bassTabs.results = await findBassTabs(s.title, s.artist); } catch (e) { bassTabs.error = 'Ultimate Guitar не ответил, попробуйте ещё раз'; }
+  bassTabs.loading = false;
+  if (route.name === 'song' && route.id === s.id) render();
+}
+
+async function openBassTab(r) {
+  const wrap = document.createElement('div');
+  wrap.className = 'modal';
+  wrap.innerHTML = `<div class="sheet-modal tab-modal" role="dialog" aria-modal="true" aria-label="Бас-таб">
+    <div style="display:flex;align-items:center;gap:8px"><div style="flex:1;min-width:0"><h2 style="margin:0">${esc(r.title)}</h2><div class="muted small">${esc(r.artist)} · бас · Ultimate Guitar</div></div>
+    <button class="icon-btn" data-close aria-label="Закрыть">${I.x}</button></div>
+    <pre class="tabpre"><div class="spinner" role="status" aria-label="Загрузка"></div></pre>
+    <a class="small" href="${esc(r.url)}" target="_blank" rel="noopener nofollow">Открыть на Ultimate Guitar</a></div>`;
+  wrap.addEventListener('click', (e) => { if (e.target === wrap || e.target.closest('[data-close]')) wrap.remove(); });
+  document.body.appendChild(wrap);
+  try { wrap.querySelector('.tabpre').textContent = await importBassTab(r.url) || 'Пусто'; }
+  catch { wrap.querySelector('.tabpre').textContent = 'Не получилось загрузить таб.'; }
 }
 
 // ---------- добавление / редактирование ----------
@@ -720,6 +776,8 @@ document.addEventListener('click', async (e) => {
   if (route.name === 'song') {
     const id = route.id;
     if (t.dataset.mode) { prefs.mode = t.dataset.mode; savePrefs(); return render(); }
+    if (act === 'findbass') return runBassSearch(db.songs.find((x) => x.id === id));
+    if (t.dataset.basstab) return openBassTab(bassTabs.results[Number(t.dataset.basstab)]);
     if (t.dataset.shift) { const v = ((((prefs.shifts[id] || 0) + Number(t.dataset.shift) + 6) % 12) + 12) % 12 - 6; if (v) prefs.shifts[id] = v; else delete prefs.shifts[id]; savePrefs(); return render(); }
     if (t.dataset.size) { prefs.size = Math.max(12, Math.min(26, (prefs.size || 16) + Number(t.dataset.size))); savePrefs(); return render(); }
     if (t.dataset.speed) { prefs.speed = Math.max(1, Math.min(10, (prefs.speed || 3) + Number(t.dataset.speed))); savePrefs(); return updateDock(); }

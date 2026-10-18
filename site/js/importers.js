@@ -9,21 +9,26 @@ async function viaSupabase(url) {
     headers: { apikey: CONFIG.supabaseKey, Authorization: `Bearer ${CONFIG.supabaseKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ url }),
   });
-  if (!r.ok) throw new Error(`proxy ${r.status}`);
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    // сайт ответил «нет такой страницы» — это ответ, а не сбой прокси: в запасной прокси не идём
+    if (/upstream status 4\d\d/.test(err.message || '')) throw Object.assign(new Error('not found'), { upstream: true });
+    throw new Error(`proxy ${r.status}`);
+  }
   const text = await r.json();
   if (typeof text !== 'string' || !text) throw new Error('empty');
   return text;
 }
 
 async function viaPublic(url) {
-  const r = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
+  const r = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(8000) });
   if (!r.ok) throw new Error(`public proxy ${r.status}`);
   return r.text();
 }
 
 export async function fetchPage(url) {
   if (CONFIG.supabaseUrl) {
-    try { return await viaSupabase(url); } catch (e) { console.warn('proxy_get failed, fallback', e); }
+    try { return await viaSupabase(url); } catch (e) { if (e.upstream) throw e; console.warn('proxy_get failed, fallback', e); }
   }
   return viaPublic(url);
 }
@@ -106,6 +111,50 @@ async function importUG(url) {
     youtube: null,
     source_url: url,
   };
+}
+
+// ---------- бас-табы (Ultimate Guitar) ----------
+const loose = (s) => (s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]+/gu, '');
+
+const sameTitle = (a, b) => { const x = loose(a), y = loose(b); return x && y && (x === y || x.includes(y) || y.includes(x)); };
+
+/** Songsterr: интерактивные табы, у многих русских групп есть отдельная дорожка баса. Открываются у них на сайте. */
+async function bassSongsterr(title, artist) {
+  const list = JSON.parse(await fetchPage(`https://www.songsterr.com/api/songs?pattern=${encodeURIComponent(`${artist} ${title}`.trim())}&size=10`));
+  return list
+    .filter((s) => s.popularTrackBass != null && !s.isJunk && sameTitle(s.title, title))
+    .slice(0, 3)
+    .map((s) => ({
+      source: 'Songsterr', external: true,
+      url: `https://www.songsterr.com/a/wsa/bass-tab-s${s.songId}`,
+      title: s.title, artist: s.artist,
+      note: (s.tracks?.[s.popularTrackBass]?.name || '').split('|').slice(0, 2).join('·').trim(),
+    }));
+}
+
+/** Ultimate Guitar: type=400 — только бас-табы; 404 значит «ничего нет». Текстом, показываем у себя. */
+async function bassUG(title, artist) {
+  let data;
+  try { data = ugStore(await fetchPage(`https://www.ultimate-guitar.com/search.php?search_type=title&type=400&value=${encodeURIComponent(title)}`)); } catch { return []; }
+  const a = loose(artist);
+  return (data.results || [])
+    .filter((r) => r.type === 'Bass Tabs' && r.tab_url?.includes('/tab/') && sameTitle(r.song_name, title))
+    .filter((r) => !a || sameTitle(r.artist_name, artist))
+    .sort((x, y) => (y.votes || 0) - (x.votes || 0))
+    .slice(0, 3)
+    .map((r) => ({ source: 'UG', url: r.tab_url, title: r.song_name, artist: r.artist_name, note: r.votes ? `★ ${Number(r.rating || 0).toFixed(1)} · ${r.votes} голосов` : '' }));
+}
+
+/** Бас-партии к песне из обоих источников. */
+export async function findBassTabs(title, artist) {
+  const [ss, ug] = await Promise.allSettled([bassSongsterr(title, artist), bassUG(title, artist)]);
+  const out = [...(ss.status === 'fulfilled' ? ss.value : []), ...(ug.status === 'fulfilled' ? ug.value : [])];
+  if (!out.length && ss.status === 'rejected' && ug.status === 'rejected') throw new Error('no answer');
+  return out;
+}
+
+export async function importBassTab(url) {
+  return (await importUG(url)).body;
 }
 
 // ---------- любая страница с <pre> ----------

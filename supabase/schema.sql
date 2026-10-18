@@ -81,7 +81,7 @@ as $$
 declare
   res extensions.http_response;
 begin
-  if url !~ '^https://(amdm\.ru|tabs\.ultimate-guitar\.com|www\.ultimate-guitar\.com|www\.youtube\.com|mychords\.net|akkords\.pro|pesnipodgitaru\.ru|www\.pisni\.org\.ua)/' then
+  if url !~ '^https://(amdm\.ru|tabs\.ultimate-guitar\.com|www\.ultimate-guitar\.com|www\.youtube\.com|www\.songsterr\.com|mychords\.net|akkords\.pro|pesnipodgitaru\.ru|www\.pisni\.org\.ua)/' then
     raise exception 'host not allowed';
   end if;
   perform extensions.http_set_curlopt('CURLOPT_TIMEOUT_MS', '15000');

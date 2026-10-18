@@ -191,3 +191,53 @@ export function chordDiagramSVG(chord, german) {
   });
   return s + '</svg>';
 }
+
+// ---------- бас ----------
+/** Нота баса: после дроби (C/G → G), иначе тоника (Am7 → A). */
+export function bassNoteOf(chord) {
+  const slash = /\/([A-H](?:#|b)?)/.exec(chord);
+  if (slash) return slash[1];
+  const root = /^([A-H](?:#|b)?)/.exec(chord);
+  return root ? root[1] : '';
+}
+
+/** Строка аккордов → строка басовых нот на тех же позициях. */
+export function bassLine(line) {
+  let out = '';
+  let debt = 0;
+  for (const part of line.split(/(\s+)/)) {
+    if (!part) continue;
+    if (/^\s+$/.test(part)) {
+      out += ' '.repeat(Math.max(1, part.length - debt));
+      debt = 0;
+    } else {
+      const [a, core, b] = splitToken(part);
+      const t = core && isChord(core) ? a + bassNoteOf(core) + b : part;
+      debt += t.length - part.length;
+      out += t;
+    }
+  }
+  return out;
+}
+
+/** Схема ноты на грифе 4-струнного баса (G D A E сверху вниз), лады 0–7, точки на E и A. */
+export function bassDiagramSVG(note, german) {
+  const m = /^([A-H])(#|b)?$/.exec(note);
+  if (!m) return '';
+  const i = noteIndex(m[1], m[2], german);
+  if (i < 0) return '';
+  const strings = [7, 2, 9, 4]; // G D A E — индексы открытых струн
+  const W = 96, top = 7, gap = 11, nut = 14, fw = 10.5, frets = 7;
+  let s = `<svg viewBox="0 0 ${W} 52" aria-hidden="true">`;
+  s += `<rect x="${nut - 2}" y="${top - 1}" width="2.5" height="${gap * 3 + 2}" fill="currentColor"/>`;
+  for (let f = 1; f <= frets; f++) s += `<line x1="${nut + f * fw}" y1="${top}" x2="${nut + f * fw}" y2="${top + gap * 3}" stroke="currentColor" stroke-opacity=".25"/>`;
+  strings.forEach((_, k) => { s += `<line x1="${nut}" y1="${top + k * gap}" x2="${nut + frets * fw}" y2="${top + k * gap}" stroke="currentColor" stroke-opacity=".5" stroke-width="${1 + k * 0.35}"/>`; });
+  [3, 5, 7].forEach((f) => { s += `<text x="${nut + (f - 0.5) * fw}" y="51" font-size="6.5" text-anchor="middle" fill="currentColor" opacity=".55">${f}</text>`; });
+  [2, 3].forEach((k) => { // струны A и E
+    const fret = (i - strings[k] + 12) % 12;
+    const y = top + k * gap;
+    if (fret === 0) s += `<circle cx="${nut - 7}" cy="${y}" r="3" fill="none" stroke="currentColor" stroke-width="1.3"/>`;
+    else if (fret <= frets) s += `<circle cx="${nut + (fret - 0.5) * fw}" cy="${y}" r="3.6" fill="currentColor"/>`;
+  });
+  return s + '</svg>';
+}

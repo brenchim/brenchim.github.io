@@ -142,6 +142,8 @@ a.row:hover { background: var(--bg); }
 .row .side { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex: none; }
 .row .side b { font-size: 13px; font-weight: 600; }
 .row .side span { font-family: var(--mono); font-size: 12px; color: var(--muted); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-by { flex: none; display: flex; padding-left: 2px; }
+.row-by img { border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--line); }
 .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .tile { padding: 14px; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; color: var(--ink); min-height: 112px; }
 .tile:hover { border-color: var(--muted); }
@@ -184,6 +186,10 @@ a.row:hover { background: var(--bg); }
 .sheet .cl { font-family: var(--mono); font-weight: 700; color: var(--chord); white-space: pre; line-height: 1.25; }
 .sheet .lbl { font-family: var(--font); font-size: .78em; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; margin: 6px 0 4px; white-space: normal; }
 .sheet.text-only { overflow-x: visible; }
+.dia.bass { width: 108px; }
+.dia.bass svg { width: 96px; height: 52px; }
+.tab-modal { max-width: 720px; }
+.tabpre { font-family: var(--mono); font-size: 12px; line-height: 1.35; white-space: pre; overflow-x: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin: 14px 0 10px; max-height: 62vh; }
 .sheet.text-only .ln { font-family: var(--font); white-space: pre-wrap; line-height: 1.55; }
 .sheet.wrap .ln, .sheet.wrap .cl { white-space: pre-wrap; }
 .video { position: relative; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden; background: #2A2A30; border: 0; padding: 0; width: 100%; display: block; }
