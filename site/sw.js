@@ -1,5 +1,5 @@
 // Офлайн: оболочка сайта из кэша, данные песен приложение само хранит в localStorage.
-const CACHE = 'brenchim-v3';
+const CACHE = 'brenchim-v4';
 const SHELL = ['./', 'index.html', 'css/app.css', 'js/app.js', 'js/store.js', 'js/chords.js', 'js/importers.js', 'js/members.js', 'js/tuner.js','js/config.js', 'img/logo.png', 'manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {

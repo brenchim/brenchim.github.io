@@ -5,8 +5,8 @@ const FILLER_RE = /^(\||\/|-|–|x\d+|х\d+|\(x?\d+\)|\d+x|\.{2,}|\(|\)|N\.?C\.?
 
 export const isChord = (tok) => CHORD_RE.test(tok);
 
-// Токен может быть обёрнут в скобки и иметь повтор: (Am) {Em}x4 C|
-const TOKEN_RE = /^([{(\[|]*)(.*?)([})\]|]*(?:[xх]\d+)?[})\]|]*)$/i;
+// Токен может быть обёрнут в скобки, иметь повтор и позицию на грифе: (Am) {Em}x4 C| G(III)
+const TOKEN_RE = /^([{(\[|]*)(.*?)((?:\([IVX]+\))?[})\]|]*(?:[xх]\d+)?[})\]|]*)$/i;
 const splitToken = (t) => { const m = TOKEN_RE.exec(t); return m ? [m[1], m[2], m[3]] : ['', t, '']; };
 const coreOf = (t) => splitToken(t)[1];
 

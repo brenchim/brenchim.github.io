@@ -58,7 +58,7 @@ img { display: block; }
 /* top bar */
 .top { display: flex; align-items: center; justify-content: space-between; padding: 14px 0 6px; gap: 8px; }
 .brand { display: flex; align-items: center; gap: 10px; color: var(--ink); }
-.brand-logo { width: 40px; height: 40px; border-radius: 11px; }
+.brand-logo { width: 40px; height: 40px; border-radius: 11px; background: #F7F6F3; padding: 3px; }
 .brand b { color: var(--ink); display: block; font-size: 22px; font-weight: 800; letter-spacing: -.02em; line-height: 1; }
 .brand span { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; }
 .top-actions { display: flex; align-items: center; gap: 2px; }
