@@ -96,9 +96,8 @@ async function needMe(reason) { return prefs.me && memberById(prefs.me) ? prefs.
 function topBar() {
   const me = memberById(prefs.me);
   return `<header class="top">
-    <a class="brand" href="#/"><span class="brand-mark">${I.note.replace('<svg', '<svg width="20" height="20"')}</span><span><b>Бренчим</b><span>песни нашей компании</span></span></a>
+    <a class="brand" href="#/"><img class="brand-logo" src="img/logo.png" alt="" width="40" height="40"><span><b>Споём</b></span></a>
     <div class="top-actions">
-      <a class="icon-btn" href="#/tuner" aria-label="Тюнер">${I.tuner}</a>
       <button class="icon-btn" data-act="theme" aria-label="${isDark() ? 'Светлая тема' : 'Тёмная тема'}">${isDark() ? I.sun : I.moon}</button>
       <button class="me-btn" data-act="me" aria-label="${me ? 'Ты: ' + esc(me.name) + '. Сменить' : 'Кто ты?'}">${me ? ava(me, 38, 'ava-ring') : `<span class="icon-btn">${I.people}</span>`}</button>
     </div></header>`;
@@ -171,7 +170,7 @@ function homeView() {
   return `<div class="wrap">${topBar()}
     <label class="search">${I.search}<span class="sr">Поиск</span><input id="q" type="search" placeholder="Песня, исполнитель или строчка" value="${esc(homeQuery)}" autocomplete="off" enterkeyhint="search"></label>
     ${q ? '' : `<section class="hero">
-      <div class="hero-row"><div><div class="eyebrow">Сет на вечер</div><h2>${esc(set?.title || 'Сет на вечер')}</h2>
+      <div class="hero-row"><div><div class="eyebrow">Сет на вечер</div><h2>${esc(set?.title && set.title !== 'Сет на вечер' ? set.title : 'Что поём?')}</h2>
         <div class="sub">${setSongs.length ? plural(setSongs.length, 'песня', 'песни', 'песен') : 'пока пусто — накидайте песен'}${set?.date ? ' · ' + esc(new Date(set.date).toLocaleDateString('ru', { day: 'numeric', month: 'long', weekday: 'short' })) : ''}</div></div>
         ${requesters.length ? `<div class="stack">${requesters.map((m) => ava(m, 28)).join('')}</div>` : ''}</div>
       <div class="hero-actions">
@@ -634,11 +633,11 @@ function render() {
   else html = homeView();
   $app.innerHTML = html;
   document.body.classList.toggle('has-dock', route.name === 'song');
-  const tab = { home: 'home', song: 'home', edit: 'home', add: 'add', set: 'set', people: 'people', tuner: 'home' }[route.name];
+  const tab = { home: 'home', song: 'home', edit: 'home', add: 'add', set: 'set', people: 'people', tuner: 'tuner' }[route.name];
   $nav.querySelectorAll('a').forEach((a) => { const on = a.dataset.tab === tab; a.classList.toggle('on', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   if (route.name === 'home') bindHome();
   const song = route.name === 'song' && db.songs.find((s) => s.id === route.id);
-  document.title = song ? `${song.title}${song.artist ? ' — ' + song.artist : ''} · Бренчим` : 'Бренчим — песни нашей компании';
+  document.title = song ? `${song.title}${song.artist ? ' — ' + song.artist : ''} · Споём` : 'Споём';
 }
 
 function onRoute() {
