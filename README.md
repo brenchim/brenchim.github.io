@@ -2,7 +2,7 @@
 
 Песенник нашей компании для встреч: тексты и аккорды, сет на вечер, топ компании, видео с YouTube и тюнер.
 
-Сайт: https://v-overkovskiy.github.io/brenchim/
+Сайт: https://brenchim.github.io/
 
 ## Что умеет
 
