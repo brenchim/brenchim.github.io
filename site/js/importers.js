@@ -185,12 +185,34 @@ export function youtubeId(input) {
   return m ? m[1] : null;
 }
 
-export async function findYoutube(q) {
+/**
+ * Видео можно встроить? oEmbed YouTube отдаёт CORS, ходим напрямую.
+ * true — да; false — удалено, приватное или встраивание запрещено; null — не смогли проверить (нет сети).
+ */
+export async function youtubeOk(id) {
+  if (!youtubeId(id)) return false;
+  try {
+    const r = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent('https://www.youtube.com/watch?v=' + id)}`, { signal: AbortSignal.timeout(8000) });
+    if (r.ok) return true;
+    return [400, 401, 403, 404].includes(r.status) ? false : null;
+  } catch { return null; }
+}
+
+/** Первое из результатов поиска видео, которое реально работает. skip — уже известные нерабочие id. */
+export async function findYoutube(q, skip = []) {
   const html = await fetchPage(`https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`);
-  const m = html.match(/"videoRenderer":\{"videoId":"([\w-]{11})".*?"title":\{"runs":\[\{"text":"((?:[^"\\]|\\.)*)"/s);
-  if (m) return { id: m[1], title: JSON.parse(`"${m[2]}"`) };
-  const id = html.match(/"videoId":"([\w-]{11})"/);
-  return id ? { id: id[1], title: '' } : null;
+  const found = [];
+  for (const m of html.matchAll(/"videoRenderer":\{"videoId":"([\w-]{11})".*?"title":\{"runs":\[\{"text":"((?:[^"\\]|\\.)*)"/gs)) {
+    if (!found.some((f) => f.id === m[1])) found.push({ id: m[1], title: (() => { try { return JSON.parse(`"${m[2]}"`); } catch { return ''; } })() });
+    if (found.length >= 6) break;
+  }
+  if (!found.length) for (const m of html.matchAll(/"videoId":"([\w-]{11})"/g)) { if (!found.some((f) => f.id === m[1])) found.push({ id: m[1], title: '' }); if (found.length >= 6) break; }
+  for (const v of found) {
+    if (skip.includes(v.id)) continue;
+    const ok = await youtubeOk(v.id);
+    if (ok !== false) return v; // null (не проверить) — лучше показать, чем ничего
+  }
+  return null;
 }
 
 // ---------- общий интерфейс ----------
@@ -208,5 +230,7 @@ export async function importFrom(url) {
   else if (/ultimate-guitar\.com\/tab\//.test(url)) song = await importUG(url);
   else song = await importGeneric(url);
   song.chords = uniqueChords(song.body);
+  // видео со страницы аккордов бывает удалено — тогда пусть подберётся новое
+  if (song.youtube && (await youtubeOk(song.youtube)) === false) song.youtube = null;
   return song;
 }

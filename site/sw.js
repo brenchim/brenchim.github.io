@@ -1,6 +1,6 @@
 // Офлайн: оболочка сайта из кэша, данные песен приложение само хранит в localStorage.
 // При каждом выпуске меняйте CACHE — открытые вкладки сами перезагрузятся на новую версию.
-const CACHE = 'brenchim-v10';
+const CACHE = 'brenchim-v11';
 const SHELL = ['./', 'index.html', 'css/app.css', 'js/app.js', 'js/store.js', 'js/chords.js', 'js/importers.js', 'js/members.js', 'js/tuner.js', 'js/config.js', 'img/logo.png', 'manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {

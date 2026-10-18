@@ -1,7 +1,7 @@
 import { MEMBERS, memberById } from './members.js';
 import * as store from './store.js';
 import { parseSheet, uniqueChords, transposeLine, transposeChord, usesH, chordDiagramSVG, mainChord, longestLine, bassLine, bassNoteOf, bassDiagramSVG } from './chords.js';
-import { searchAll, importFrom, findYoutube, youtubeId, findBassTabs, importBassTab } from './importers.js';
+import { searchAll, importFrom, findYoutube, youtubeId, youtubeOk, findBassTabs, importBassTab } from './importers.js';
 import { Tuner, STRINGS, describe, nearestString } from './tuner.js';
 
 const db = store.db;
@@ -321,7 +321,7 @@ function songView(id, inSet) {
 
     <section class="section">
       <div class="section-head"><h2>Видео</h2>${s.youtube ? `<a class="small" href="https://www.youtube.com/watch?v=${esc(s.youtube)}" target="_blank" rel="noopener">Открыть в YouTube</a>` : ''}</div>
-      ${s.youtube ? `<button class="video" data-act="video" aria-label="Включить видео"><img src="https://i.ytimg.com/vi/${esc(s.youtube)}/hqdefault.jpg" alt="" loading="lazy"><span class="play"><span>${I.play.replace('<svg', '<svg width="22" height="22" style="color:#fff"')}</span></span></button>`
+      ${s.youtube ? (queueMicrotask(() => checkVideo(s)), '') : ''}${s.youtube ? `<button class="video" data-act="video" aria-label="Включить видео"><img src="https://i.ytimg.com/vi/${esc(s.youtube)}/hqdefault.jpg" alt="" loading="lazy"><span class="play"><span>${I.play.replace('<svg', '<svg width="22" height="22" style="color:#fff"')}</span></span></button>`
         : `<div class="card empty" style="padding:18px">Видео нет. <button class="btn" data-act="findvideo" style="margin-top:10px">${I.yt} Найти на YouTube</button></div>`}
       <div class="meta small" style="justify-content:space-between;margin-top:10px">
         <span>${source ? `Аккорды: <a href="${esc(s.source_url)}" target="_blank" rel="noopener nofollow">${esc(source)}</a>` : ''}</span>
@@ -329,6 +329,21 @@ function songView(id, inSet) {
     </section>
   </div>
   ${dockHTML(id, inSet)}`;
+}
+
+// Видео могли удалить с YouTube — проверяем один раз за сессию и тихо подменяем на рабочее
+const ytChecked = new Set();
+async function checkVideo(s) {
+  const id = s.youtube;
+  if (!id || ytChecked.has(id)) return;
+  ytChecked.add(id);
+  if ((await youtubeOk(id)) !== false) return;
+  let v = null;
+  try { v = await findYoutube(`${s.artist} ${s.title}`.trim(), [id]); } catch { /* YouTube не ответил */ }
+  if (v) ytChecked.add(v.id);
+  await store.updateSong(s.id, { youtube: v ? v.id : null }).catch(() => {});
+  toast(v ? 'Старое видео удалили с YouTube — поставили другое' : 'Видео удалили с YouTube, замену не нашли');
+  if (route.name === 'song' && route.id === s.id && !document.querySelector('.video iframe')) render();
 }
 
 function setNeighbors(id) {
