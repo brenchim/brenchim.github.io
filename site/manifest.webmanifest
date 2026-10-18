@@ -1,6 +1,6 @@
 {
-  "name": "Споём",
-  "short_name": "Споём",
+  "name": "Brenchim",
+  "short_name": "Brenchim",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

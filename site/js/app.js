@@ -96,7 +96,7 @@ async function needMe(reason) { return prefs.me && memberById(prefs.me) ? prefs.
 function topBar() {
   const me = memberById(prefs.me);
   return `<header class="top">
-    <a class="brand" href="#/"><img class="brand-logo" src="img/logo.png" alt="" width="40" height="40"><span><b>Споём</b></span></a>
+    <a class="brand" href="#/"><img class="brand-logo" src="img/logo.png" alt="" width="40" height="40"><span><b>Brenchim</b></span></a>
     <div class="top-actions">
       <button class="icon-btn" data-act="theme" aria-label="${isDark() ? 'Светлая тема' : 'Тёмная тема'}">${isDark() ? I.sun : I.moon}</button>
       <button class="me-btn" data-act="me" aria-label="${me ? 'Ты: ' + esc(me.name) + '. Сменить' : 'Кто ты?'}">${me ? ava(me, 38, 'ava-ring') : `<span class="icon-btn">${I.people}</span>`}</button>
@@ -637,7 +637,7 @@ function render() {
   $nav.querySelectorAll('a').forEach((a) => { const on = a.dataset.tab === tab; a.classList.toggle('on', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   if (route.name === 'home') bindHome();
   const song = route.name === 'song' && db.songs.find((s) => s.id === route.id);
-  document.title = song ? `${song.title}${song.artist ? ' — ' + song.artist : ''} · Споём` : 'Споём';
+  document.title = song ? `${song.title}${song.artist ? ' — ' + song.artist : ''} · Brenchim` : 'Brenchim';
 }
 
 function onRoute() {
