@@ -965,4 +965,18 @@ onRoute();
 store.load();
 setInterval(() => { if (document.visibilityState === 'visible' && !scrollTimer && route.name !== 'add' && route.name !== 'edit' && store.remote) store.load(); }, 60000);
 
-if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+// Новая версия сайта: сервис-воркер сменился — перезагружаемся, но не посреди ввода песни
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  const hadController = !!navigator.serviceWorker.controller;
+  let pendingReload = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) return; // первая установка — страница и так свежая
+    if (route.name === 'add' || route.name === 'edit' || scrollTimer || tuner) pendingReload = true;
+    else location.reload();
+  });
+  window.addEventListener('hashchange', () => { if (pendingReload && route.name !== 'add' && route.name !== 'edit') location.reload(); });
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+    // телефон мог держать вкладку часами — проверяем обновление при возвращении
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+  }).catch(() => {});
+}
