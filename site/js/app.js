@@ -369,9 +369,17 @@ function addView(params) {
       <div class="muted small" style="margin-top:8px">Ищем на amdm.ru и Ultimate Guitar. Нажмите на вариант — подтянем текст, аккорды и видео.</div>
       ${addState.loading ? '<div class="spinner" role="status" aria-label="Загрузка"></div>' : ''}
       ${addState.error ? `<div class="notice">${esc(addState.error)}</div>` : ''}
-      ${addState.results ? (addState.results.length ? `<div style="margin-top:14px">${addState.results.map((r, i) => `<button class="result" data-pick="${i}">
-          <span class="main"><span class="t">${esc(r.title)}</span><span class="muted small">${esc(r.artist)}${r.note ? ' · ' + esc(r.note) : ''}</span></span>
-          <span class="badge">${esc(r.source)}</span></button>`).join('')}</div>` : `<div class="card empty" style="margin-top:14px">Ничего не нашли. Попробуйте иначе написать или добавьте вручную.</div>`) : ''}
+      ${addState.results ? (addState.results.length ? `<div class="muted small" style="margin-top:14px">Нажмите на песню, чтобы посмотреть и поправить, или «+», чтобы сразу добавить — можно несколько подряд.</div>
+        <div style="margin-top:10px">${addState.results.map((r, i) => {
+          const have = r.addedId || existingSong(r)?.id;
+          const side = r.adding ? '<span class="quick-add" aria-label="Добавляем"><span class="spinner" style="margin:0;width:20px;height:20px"></span></span>'
+            : have ? `<a class="quick-add done" href="#/song/${have}" aria-label="Уже в песеннике — открыть">${I.check}</a>`
+            : `<button class="quick-add" data-quick="${i}" aria-label="Сразу добавить «${esc(r.title)}»">${I.plus}</button>`;
+          return `<div class="result">
+          <button class="result-main" data-pick="${i}"><span class="main"><span class="t">${esc(r.title)}</span>
+            <span class="muted small">${esc(r.artist)}${r.note ? ' · ' + esc(r.note) : ''}${have ? ' · <b class="ok-text">уже есть</b>' : ''}</span></span>
+            <span class="badge">${esc(r.source)}</span></button>${side}</div>`;
+        }).join('')}</div>` : `<div class="card empty" style="margin-top:14px">Ничего не нашли. Попробуйте иначе написать или добавьте вручную.</div>`) : ''}
       ${addState.failed ? '<div class="muted small">Часть сайтов не ответила.</div>' : ''}`;
   } else if (t === 'link') {
     inner = `<form id="link-form"><label class="field"><span>Ссылка на страницу с аккордами</span>
@@ -425,6 +433,35 @@ async function loadDraft(url, hint = {}) {
     addState.error = 'Не получилось загрузить: ' + e.message;
   }
   addState.loading = false;
+  if (route.name === 'add') render();
+}
+
+// Песня из результатов поиска уже есть в песеннике?
+function existingSong(r) {
+  const key = norm(`${r.artist} ${r.title}`);
+  return db.songs.find((s) => (r.url && s.source_url === r.url) || norm(`${s.artist} ${s.title}`) === key);
+}
+
+// «+» в результатах: импорт и сохранение без формы, чтобы можно было добавить несколько подряд
+async function quickAdd(r) {
+  if (!r || r.adding || r.addedId) return;
+  const me = await needMe('Выбери себя — так будет видно, кто добавил песню.');
+  if (!me) return;
+  r.adding = true;
+  render();
+  try {
+    const s = await importFrom(r.url);
+    s.title ||= r.title;
+    s.artist ||= r.artist;
+    if (!s.youtube) {
+      try { const v = await findYoutube(`${s.artist} ${s.title}`); if (v) s.youtube = v.id; } catch { /* без видео */ }
+    }
+    r.addedId = await store.addSong({ title: s.title, artist: s.artist, body: s.body, youtube: s.youtube, source_url: s.source_url, added_by: me });
+    toast(`Добавили «${s.title}»`);
+  } catch (e) {
+    toast('Не получилось добавить: ' + e.message.slice(0, 60));
+  }
+  r.adding = false;
   if (route.name === 'add') render();
 }
 
@@ -739,6 +776,7 @@ document.addEventListener('click', async (e) => {
       const r = addState.results[Number(t.dataset.pick)];
       return loadDraft(r.url, r);
     }
+    if (t.dataset.quick) return quickAdd(addState.results[Number(t.dataset.quick)]);
     if (act === 'discard') { addState.draft = null; return render(); }
     if (act === 'autovideo') {
       const form = document.getElementById('song-form');

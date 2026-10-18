@@ -221,10 +221,16 @@ body.has-dock { padding-bottom: calc(160px + env(safe-area-inset-bottom)); }
 .input:focus, .textarea:focus { border-color: var(--ink); }
 .textarea { height: auto; min-height: 320px; padding: 12px; font-family: var(--mono); font-size: 14px; line-height: 1.45; resize: vertical; white-space: pre; overflow-x: auto; }
 .result {
-  width: 100%; text-align: left; display: flex; align-items: flex-start; gap: 12px; padding: 14px;
-  border-radius: 16px; background: var(--surface); border: 1px solid var(--line); margin-bottom: 8px; color: var(--ink);
+  width: 100%; display: flex; align-items: stretch; border-radius: 16px; background: var(--surface);
+  border: 1px solid var(--line); margin-bottom: 8px; color: var(--ink); overflow: hidden;
 }
 .result:hover { border-color: var(--muted); }
+.result-main { flex: 1; min-width: 0; text-align: left; display: flex; align-items: flex-start; gap: 12px; padding: 14px; border: 0; background: transparent; }
+.quick-add { flex: none; width: 56px; display: grid; place-items: center; border: 0; border-left: 1px solid var(--line-2); background: transparent; color: var(--accent-ink); }
+.quick-add svg { width: 24px; height: 24px; }
+.quick-add:hover { background: var(--accent-soft); }
+.quick-add.done { color: #1F9D55; }
+.ok-text { color: #1F9D55; font-weight: 600; }
 .result .main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .result .t { font-weight: 600; font-size: 16px; }
 .toggle-row { display: flex; align-items: center; gap: 12px; padding: 14px; min-height: 56px; border-bottom: 1px solid var(--line-2); }
