@@ -114,9 +114,16 @@ async function importUG(url) {
 }
 
 // ---------- бас-табы (Ultimate Guitar) ----------
-const loose = (s) => (s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]+/gu, '');
+const loose = (s) => (s || '').toLowerCase().replace(/ё/g, 'е').replace(/[ії]/g, 'и').replace(/є/g, 'е').replace(/ґ/g, 'г').replace(/[^\p{L}\p{N}]+/gu, '');
 
-const sameTitle = (a, b) => { const x = loose(a), y = loose(b); return x && y && (x === y || x.includes(y) || y.includes(x)); };
+// Название совпадает целиком; приписки в скобках («(live cover)», «(альб. …)») не мешают,
+// а «Gruppa Krovi (Группа крови)» засчитывается по скобкам. «Что такое осень» ≠ «Осень».
+const titleVariants = (s) => {
+  const str = s || '';
+  const inside = [...str.matchAll(/\(([^)]*)\)|\[([^\]]*)\]/g)].map((m) => m[1] ?? m[2]);
+  return [str.replace(/\([^)]*\)|\[[^\]]*\]/g, ''), ...inside].map(loose).filter(Boolean);
+};
+const sameTitle = (a, b) => { const B = titleVariants(b); return titleVariants(a).some((x) => B.includes(x)); };
 
 /** Songsterr: интерактивные табы, у многих русских групп есть отдельная дорожка баса. Открываются у них на сайте. */
 async function bassSongsterr(title, artist) {
