@@ -253,6 +253,9 @@ body.has-dock { padding-bottom: calc(160px + env(safe-area-inset-bottom)); }
 .tn-string b { font-size: 20px; font-family: var(--mono); }
 .tn-string span { font-size: 11px; color: var(--muted); }
 .tn-string.on { border-color: var(--accent); background: var(--accent-soft); }
+.tn-string.locked { box-shadow: inset 0 0 0 2px var(--ink); }
+.tn-mode { margin-top: 14px; color: var(--muted); text-align: center; min-height: 18px; }
+.tn-mode b { color: var(--ink); }
 .tn-string.ok { border-color: #1F9D55; background: rgba(31, 157, 85, .12); }
 @media (prefers-reduced-motion: reduce) { .tn-needle { transition: none; } }
 

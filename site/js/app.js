@@ -510,6 +510,7 @@ function peopleView(id) {
 
 // ---------- тюнер ----------
 let tuner = null;
+let tunerLock = null; // null — авто, иначе индекс струны, выбранной вручную
 
 function tunerView() {
   const on = !!tuner;
@@ -525,12 +526,13 @@ function tunerView() {
       <div class="tn-scale muted small" aria-hidden="true"><span>−50</span><span>0</span><span>+50</span></div>
       <div class="tn-hint" id="tn-hint">&nbsp;</div>
     </section>
-    <div class="tn-strings" role="group" aria-label="Струны — нажмите, чтобы услышать эталон">
-      ${STRINGS.map((s, i) => `<button class="tn-string" data-ref="${i}" id="tn-s${i}" aria-label="Струна ${s.label}, ${s.name}: сыграть эталон"><b>${s.name}</b><span>${s.label}</span></button>`).join('')}
+    <div class="tn-mode small" id="tn-mode">${tunerLock == null ? '<b>Авто</b> — тюнер сам определяет, какую струну вы дёрнули' : `<b>Струна ${STRINGS[tunerLock].label} (${STRINGS[tunerLock].name})</b> — нажмите на неё ещё раз, чтобы вернуть авто`}</div>
+    <div class="tn-strings" role="group" aria-label="Струны">
+      ${STRINGS.map((s, i) => `<button class="tn-string ${tunerLock === i ? 'locked' : ''}" data-ref="${i}" id="tn-s${i}" aria-pressed="${tunerLock === i}" aria-label="Струна ${s.label}, ${s.name}: настраивать её и сыграть эталон"><b>${s.name}</b><span>${s.label}</span></button>`).join('')}
     </div>
     <button class="btn ${on ? '' : 'btn-primary'} btn-block" data-act="tuner" style="margin-top:16px">${I.mic} ${on ? 'Выключить микрофон' : 'Включить микрофон'}</button>
     <p class="muted small" style="margin-top:12px;line-height:1.5">Стандартный строй E A D G B E. Дёргайте одну струну и держите телефон рядом с гитарой.
-      Нажмите на струну внизу — прозвучит эталонная нота, чтобы настроить на слух.</p>
+      Если струна сильно расстроена (например, новая), нажмите на неё внизу: тюнер будет мерить именно от неё и сыграет эталонную ноту.</p>
   </div>`;
 }
 
@@ -547,10 +549,11 @@ function showReading(freq) {
     return;
   }
   const d = describe(freq);
-  const s = nearestString(freq);
+  const locked = tunerLock != null;
+  const s = locked ? { index: tunerLock, cents: Math.round(1200 * Math.log2(freq / STRINGS[tunerLock].freq)) } : nearestString(freq);
   const target = STRINGS[s.index];
-  // если играют ровно на ноту струны — меряем от неё, иначе показываем хроматически
-  const cents = Math.abs(s.cents) <= 60 ? s.cents : d.cents;
+  // с выбранной струной меряем всегда от неё; в авто — от ближайшей, а если далеко, показываем хроматически
+  const cents = locked || Math.abs(s.cents) <= 60 ? s.cents : d.cents;
   const clamped = Math.max(-50, Math.min(50, cents));
   const ok = Math.abs(cents) <= 5;
   noteEl.textContent = d.note;
@@ -559,9 +562,11 @@ function showReading(freq) {
   needle.style.transform = `translateX(-50%) rotate(${clamped * 0.9}deg)`;
   needle.className = 'tn-needle' + (ok ? ' ok' : '');
   const btn = document.getElementById('tn-s' + s.index);
-  if (Math.abs(s.cents) <= 60) {
+  const name = `Струна ${target.label} (${target.name})`;
+  if (locked || Math.abs(s.cents) <= 60) {
     btn?.classList.add(ok ? 'ok' : 'on');
-    hint.textContent = ok ? `Струна ${target.label} (${target.name}) настроена` : s.cents < 0 ? `Струна ${target.label}: подтяните ↑` : `Струна ${target.label}: ослабьте ↓`;
+    const far = Math.abs(s.cents) > 100 ? ' сильно' : '';
+    hint.textContent = ok ? `${name} настроена` : s.cents < 0 ? `${name}: подтяните${far} ↑` : `${name}: ослабьте${far} ↓`;
   } else hint.textContent = s.cents < 0 ? `Ближе всего к ${target.name} (${target.label}) — подтяните` : `Ближе всего к ${target.name} (${target.label}) — ослабьте`;
 }
 
@@ -660,7 +665,13 @@ document.addEventListener('click', async (e) => {
   if (act === 'theme') return toggleTheme();
   if (act === 'me') return pickMe('Выбери себя — так будет видно, кто добавил песню и кто умеет её играть.');
   if (act === 'tuner') { if (tuner) stopTuner(); else startTuner(); return; }
-  if (t.dataset.ref) { playReference(Number(t.dataset.ref)); return; }
+  if (t.dataset.ref) {
+    const i = Number(t.dataset.ref);
+    if (tunerLock === i) tunerLock = null;
+    else { tunerLock = i; playReference(i); }
+    render();
+    return;
+  }
   if (act === 'random') {
     const pool = db.songs;
     if (pool.length) location.hash = `#/song/${pool[Math.floor(Math.random() * pool.length)].id}`;
